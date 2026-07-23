@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, Menu, X } from "lucide-react";
+import { LogOut, LayoutDashboard, Menu, X, List } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 
 export default function Navbar() {
@@ -35,7 +35,18 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden sm:flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/my-bids")}
+                className="text-muted-foreground hover:text-foreground gap-2"
+              >
+                <List className="w-4 h-4" />
+                My Bids
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="ghost"
@@ -85,6 +96,17 @@ export default function Navbar() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="sm:hidden border-t border-border/50 bg-background/95 px-4 py-3 flex flex-col gap-2">
+            {user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { navigate("/my-bids"); setMobileOpen(false); }}
+                className="justify-start gap-2"
+              >
+                <List className="w-4 h-4" />
+                My Bids
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="ghost"

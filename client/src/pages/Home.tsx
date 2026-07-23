@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, Trophy, Users, ChevronRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import CountdownTimer from "@/components/CountdownTimer";
 
 export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
@@ -247,9 +248,10 @@ function AuctionCard({ item, onClick }: { item: Item; onClick: () => void }) {
             </div>
           )}
           {isActive && (
-            <Button size="sm" variant="ghost" className="text-primary hover:text-primary gap-1 text-xs">
-              Enter <ChevronRight className="w-3 h-3" />
-            </Button>
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Time Left</p>
+              <CountdownTimer endTime={item.end_time} />
+            </div>
           )}
         </div>
       </div>

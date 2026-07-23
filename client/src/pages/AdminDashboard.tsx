@@ -48,7 +48,49 @@ export default function AdminDashboard() {
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [bidAmount, setBidAmount] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Verifications state
+  const [activeTab, setActiveTab] = useState<"auctions" | "verifications">("auctions");
+  const [verifications, setVerifications] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "verifications") fetchVerifications();
+  }, [isAdmin, activeTab]);
+
+  async function fetchVerifications() {
+    const { data } = await supabase
+      .from("payment_verifications")
+      .select(`
+        id, status, screenshot_url, created_at,
+        bids ( chosen_number, id, items (title) ),
+        payment_methods (method_name)
+      `)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    setVerifications(data ?? []);
+  }
+
+  async function handleVerify(verificationId: string, bidId: string, approve: boolean) {
+    const { error } = await supabase
+      .from("payment_verifications")
+      .update({ 
+        status: approve ? "verified" : "rejected",
+        verified_by: user?.id,
+        verified_at: new Date().toISOString(),
+        rejection_reason: approve ? null : "Invalid screenshot"
+      })
+      .eq("id", verificationId);
+
+    if (!error && approve) {
+      await supabase.from("bids").update({ paid: true }).eq("id", bidId);
+      toast.success("Payment verified and bid marked as paid!");
+    } else if (!error) {
+      toast.success("Payment rejected.");
+    }
+    fetchVerifications();
+  }
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdmin)) {
@@ -77,6 +119,7 @@ export default function AdminDashboard() {
       description: description.trim() || null,
       image_url: imageUrl.trim() || null,
       bid_amount: amount,
+      end_time: endTime || new Date(Date.now() + 86400000).toISOString(),
       status: "active",
     });
     if (error) {
@@ -85,6 +128,7 @@ export default function AdminDashboard() {
       toast.success("Auction created!");
       setTitle(""); setDescription(""); setImageUrl(""); setBidAmount("");
       setCreateOpen(false);
+      setEndTime("");
       fetchItems();
     }
     setCreating(false);
@@ -167,10 +211,20 @@ export default function AdminDashboard() {
         </Link>
         <nav className="flex-1 px-3 py-4 space-y-1">
           <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-2">Admin</div>
-          <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-accent text-foreground text-sm font-medium">
-            <Trophy className="w-4 h-4" style={{ color: "var(--gold)" }} />
+          <button
+            onClick={() => setActiveTab("auctions")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "auctions" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+          >
+            <Trophy className="w-4 h-4" style={{ color: activeTab === "auctions" ? "var(--gold)" : "currentColor" }} />
             Auctions
-          </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("verifications")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "verifications" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+          >
+            <CheckCircle2 className="w-4 h-4" style={{ color: activeTab === "verifications" ? "var(--gold)" : "currentColor" }} />
+            Verifications
+          </button>
         </nav>
         <div className="px-5 py-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
@@ -194,6 +248,8 @@ export default function AdminDashboard() {
         </header>
 
         <div className="p-6">
+          {activeTab === "auctions" ? (
+            <>
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             {[
@@ -298,6 +354,40 @@ export default function AdminDashboard() {
               </Table>
             </div>
           )}
+          </>
+          ) : (
+            <div className="space-y-4">
+              {verifications.length === 0 ? (
+                <div className="border border-border/50 rounded-xl p-12 text-center">
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-display)" }}>No pending verifications.</p>
+                  <p className="text-sm text-muted-foreground">All payments have been processed.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {verifications.map((v: any) => (
+                    <div key={v.id} className="bg-card border border-border p-4 rounded-xl flex flex-col md:flex-row gap-6 items-start">
+                      <a href={v.screenshot_url} target="_blank" rel="noreferrer" className="shrink-0">
+                        <img src={v.screenshot_url} alt="Proof" className="w-32 h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                      </a>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-lg text-foreground truncate">{v.bids?.items?.title}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm">
+                          <p className="text-muted-foreground">Number: <span className="text-gold font-mono font-bold">#{v.bids?.chosen_number}</span></p>
+                          <p className="text-muted-foreground">Method: <span className="text-foreground font-medium">{v.payment_methods?.method_name}</span></p>
+                          <p className="text-muted-foreground">Date: <span className="text-foreground font-medium">{new Date(v.created_at).toLocaleString()}</span></p>
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6" onClick={() => handleVerify(v.id, v.bids.id, true)}>Approve</Button>
+                          <Button size="sm" variant="destructive" className="font-semibold px-6" onClick={() => handleVerify(v.id, v.bids.id, false)}>Reject</Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -339,18 +429,30 @@ export default function AdminDashboard() {
                 className="bg-input border-border"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Entry Fee (USD) *</Label>
-              <Input
-                type="number"
-                min={0.01}
-                step={0.01}
-                placeholder="e.g. 5.00"
-                value={bidAmount}
-                onChange={(e) => setBidAmount(e.target.value)}
-                className="bg-input border-border number-badge font-semibold"
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Entry Fee (USD) *</Label>
+                <Input
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  placeholder="e.g. 5.00"
+                  value={bidAmount}
+                  onChange={(e) => setBidAmount(e.target.value)}
+                  className="bg-input border-border number-badge font-semibold"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End Time *</Label>
+                <Input
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="bg-input border-border"
+                  required
+                />
+              </div>
             </div>
             <div className="flex gap-3 pt-2">
               <Button

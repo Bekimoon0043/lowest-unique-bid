@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AuctionDetail from "@/pages/AuctionDetail";
 import Home from "@/pages/Home";
+import MyBids from "@/pages/MyBids";
 import NotFound from "@/pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Route, Switch } from "wouter";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/auction/:id" component={AuctionDetail} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/my-bids" component={MyBids} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

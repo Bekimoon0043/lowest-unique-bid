@@ -9,6 +9,8 @@ import { supabase, type Item, type Bid } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import AuthModal from "@/components/AuthModal";
+import DepositModal from "@/components/DepositModal";
+import CountdownTimer from "@/components/CountdownTimer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +37,8 @@ export default function AuctionDetail() {
   const [authOpen, setAuthOpen] = useState(false);
 
   // Payment + number selection state
-  const [payConfirmOpen, setPayConfirmOpen] = useState(false);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [newBidId, setNewBidId] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [chosenNumber, setChosenNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -66,25 +69,24 @@ export default function AuctionDetail() {
     setLoading(false);
   }
 
-  // Simulate payment — in production integrate real payment gateway
   async function handlePay() {
     if (!user || !item) return;
     setPaying(true);
-    // Insert bid record with paid=true (in production, only set paid=true after real payment confirmation)
-    const { error } = await supabase.from("bids").insert({
+    const { data, error } = await supabase.from("bids").insert({
       item_id: item.id,
       user_id: user.id,
-      chosen_number: 0, // placeholder until they pick
-      paid: true,
-    });
+      chosen_number: 0,
+      paid: false,
+    }).select().single();
+    
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success("Payment confirmed! Now pick your number.");
+    } else if (data) {
+      setNewBidId(data.id);
+      setShowDeposit(true);
       await fetchData();
     }
     setPaying(false);
-    setPayConfirmOpen(false);
   }
 
   async function handlePickNumber() {
@@ -187,6 +189,14 @@ export default function AuctionDetail() {
                   ${item.bid_amount.toLocaleString()}
                 </p>
               </div>
+              {isActive && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Time Left</p>
+                  <div className="text-2xl">
+                    <CountdownTimer endTime={item.end_time} />
+                  </div>
+                </div>
+              )}
               {item.status === "ended" && item.winning_number && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-0.5">Winning Number</p>
@@ -254,9 +264,10 @@ export default function AuctionDetail() {
                 <Button
                   size="lg"
                   className="w-full bg-primary text-primary-foreground font-semibold hover:opacity-90 text-base"
-                  onClick={() => setPayConfirmOpen(true)}
+                  onClick={handlePay}
+                  disabled={paying}
                 >
-                  Pay ${item.bid_amount} & Enter Auction
+                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay $${item.bid_amount} & Enter Auction`}
                 </Button>
               </div>
             ) : !hasPickedNumber ? (
@@ -325,31 +336,11 @@ export default function AuctionDetail() {
         )}
       </div>
 
-      {/* Pay confirmation dialog */}
-      <Dialog open={payConfirmOpen} onOpenChange={setPayConfirmOpen}>
-        <DialogContent className="bg-card border-border max-w-sm">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>
-              Confirm Payment
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              You are about to pay <strong className="text-foreground number-badge">${item.bid_amount}</strong> to enter this auction. This fee is <strong className="text-destructive">non-refundable</strong>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 mt-2">
-            <Button variant="outline" className="flex-1 bg-transparent" onClick={() => setPayConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 bg-primary text-primary-foreground font-semibold hover:opacity-90"
-              onClick={handlePay}
-              disabled={paying}
-            >
-              {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Pay"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DepositModal 
+        isOpen={showDeposit} 
+        bidId={newBidId || ""} 
+        onClose={() => setShowDeposit(false)} 
+      />
 
       {/* Number confirmation dialog */}
       <Dialog open={numberConfirmOpen} onOpenChange={setNumberConfirmOpen}>

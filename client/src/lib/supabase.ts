@@ -19,6 +19,7 @@ export type Item = {
   status: "active" | "ended";
   winner_id: string | null;
   winning_number: number | null;
+  end_time: string;
   created_at: string;
 };
 
