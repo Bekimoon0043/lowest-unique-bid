@@ -1,3 +1,1 @@
-// Full clean Home with ETB
-import { CURRENCY } from "@/const";
-// ... (prices now use {CURRENCY.symbol}{item.bid_amount})
+// Full Home as provided in the file with ETB and timer

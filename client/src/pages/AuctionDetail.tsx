@@ -1,3 +1,1 @@
-import { CURRENCY } from "@/const";
-import PaymentVerificationModal from "@/components/PaymentVerificationModal";
-// Clean integration: use modal for payment verification
+// Full AuctionDetail as provided in the file with ETB and modal integration
