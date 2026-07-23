@@ -34,7 +34,7 @@ export type Bid = {
 
 export type Profile = {
   id: string;
-  phone_number: string;
+  email: string;
   full_name: string | null;
   is_admin: boolean;
 };

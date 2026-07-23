@@ -61,7 +61,7 @@ export default function Navbar() {
             {user ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-muted-foreground truncate max-w-[160px]">
-                  {user.user_metadata?.phone_number || user.phone || "User"}
+                  {user.email}
                 </span>
                 <Button
                   variant="ghost"
@@ -120,7 +120,7 @@ export default function Navbar() {
             )}
             {user ? (
               <>
-                <p className="text-sm text-muted-foreground px-2">{user.user_metadata?.phone_number || user.phone || "User"}</p>
+                <p className="text-sm text-muted-foreground px-2">{user.email}</p>
                 <Button
                   variant="ghost"
                   size="sm"

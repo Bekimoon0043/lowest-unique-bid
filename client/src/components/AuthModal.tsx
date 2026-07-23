@@ -16,7 +16,7 @@ type Props = { open: boolean; onClose: () => void };
 export default function AuthModal({ open, onClose }: Props) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ export default function AuthModal({ open, onClose }: Props) {
     e.preventDefault();
     setLoading(true);
     if (mode === "signin") {
-      const { error } = await signIn(phoneNumber, password);
+      const { error } = await signIn(email, password);
       if (error) {
         toast.error(error);
       } else {
@@ -38,11 +38,11 @@ export default function AuthModal({ open, onClose }: Props) {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(phoneNumber, password, fullName);
+      const { error } = await signUp(email, password, fullName);
       if (error) {
         toast.error(error);
       } else {
-        toast.success("Account created successfully!");
+        toast.success("Account created! Check your email to confirm.");
         onClose();
       }
     }
@@ -74,13 +74,13 @@ export default function AuthModal({ open, onClose }: Props) {
             </div>
           )}
           <div className="space-y-1.5">
-            <Label htmlFor="phoneNumber">Phone Number</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="phoneNumber"
-              type="tel"
-              placeholder="+1 (555) 000-0000"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="bg-input border-border"
             />

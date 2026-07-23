@@ -1,22 +1,22 @@
 /**
  * Midnight Vault — Auth Context
- * Handles Supabase auth state globally with phone number authentication
+ * Handles Supabase auth state globally
  */
 import { supabase } from "@/lib/supabase";
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState } from "react";
 
-// Admin phone numbers — add your admin phone number here
-const ADMIN_PHONE_NUMBERS = ["+1234567890"];
+// Admin emails — add your admin email here
+const ADMIN_EMAILS = ["bereketamare0043@gmail.com"];
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   isAdmin: boolean;
   loading: boolean;
-  signIn: (phoneNumber: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
-    phoneNumber: string,
+    email: string,
     password: string,
     fullName: string
   ) => Promise<{ error: string | null }>;
@@ -48,31 +48,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isAdmin =
-    !!user && (ADMIN_PHONE_NUMBERS.includes(user.phone ?? "") || user.user_metadata?.is_admin === true);
+    !!user && (ADMIN_EMAILS.includes(user.email ?? "") || user.user_metadata?.is_admin === true);
 
-  const signIn = async (phoneNumber: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ 
-      email: `${phoneNumber.replace(/\D/g, "")}@phone.local`,
-      password 
-    });
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (phoneNumber: string, password: string, fullName: string) => {
-    // Create a unique email from phone number for Supabase (which requires email)
-    const uniqueEmail = `${phoneNumber.replace(/\D/g, "")}@phone.local`;
-    
+  const signUp = async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
-      email: uniqueEmail,
+      email,
       password,
-      options: { 
-        data: { 
-          full_name: fullName,
-          phone_number: phoneNumber
-        },
-        // Disable email verification
-        emailRedirectTo: undefined
-      },
+      options: { data: { full_name: fullName } },
     });
     return { error: error?.message ?? null };
   };
@@ -95,3 +82,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+

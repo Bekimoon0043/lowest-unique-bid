@@ -227,7 +227,7 @@ export default function AdminDashboard() {
           </button>
         </nav>
         <div className="px-5 py-4 border-t border-border/50">
-          <p className="text-xs text-muted-foreground truncate">{user?.user_metadata?.phone_number || user?.phone || "Admin"}</p>
+          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           <p className="text-xs font-semibold mt-0.5" style={{ color: "var(--gold)" }}>Administrator</p>
         </div>
       </aside>
