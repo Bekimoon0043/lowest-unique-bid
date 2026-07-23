@@ -4,5 +4,6 @@ export const CURRENCY = {
   name: 'Ethiopian Birr'
 } as const;
 
-export const PAYMENT_INSTRUCTIONS = `Send ${CURRENCY.symbol} payment via Telebirr or Bank Transfer.
-Include your Bid ID in the reference.`;
+export const APP_NAME = 'UniqueWin';
+
+export const PAYMENT_INSTRUCTIONS = 'Send payment via Telebirr or Bank Transfer to admin. Upload screenshot or transaction ID for verification.';
