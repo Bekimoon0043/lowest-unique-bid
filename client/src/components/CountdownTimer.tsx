@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Hourglass } from "lucide-react";
 
-export default function CountdownTimer({ endTime, onEnd }: { endTime: string; onEnd?: () => void }) {
+export default function CountdownTimer({ endTime }: { endTime: string }) {
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
@@ -15,19 +14,12 @@ export default function CountdownTimer({ endTime, onEnd }: { endTime: string; on
         setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
       } else {
         setTimeLeft("Ended");
-        if (onEnd) onEnd();
       }
     };
-    
     calculateTimeLeft();
     const timer = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(timer);
-  }, [endTime, onEnd]);
+  }, [endTime]);
 
-  return (
-    <div className="flex items-center gap-2 text-sm font-mono font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full border border-gold/20">
-      <Hourglass className="w-4 h-4" />
-      {timeLeft}
-    </div>
-  );
-}
+  return <span className="font-mono text-gold font-bold">{timeLeft}</span>;
+                                   }

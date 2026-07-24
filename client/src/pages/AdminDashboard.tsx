@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { supabase, type Item, type Bid } from "@/lib/supabase";
+import { formatETB } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trophy, Users, Eye, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
+import { Plus, Trophy, Users, Eye, CheckCircle2, Loader2, ShieldAlert, Wallet, Pencil, Trash2, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 
 export default function AdminDashboard() {
@@ -52,18 +53,99 @@ export default function AdminDashboard() {
   const [creating, setCreating] = useState(false);
 
   // Verifications state
-  const [activeTab, setActiveTab] = useState<"auctions" | "verifications">("auctions");
+  const [activeTab, setActiveTab] = useState<"auctions" | "verifications" | "payments">("auctions");
   const [verifications, setVerifications] = useState<any[]>([]);
+
+  // Payment methods state
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(false);
+  const [methodDialogOpen, setMethodDialogOpen] = useState(false);
+  const [editingMethod, setEditingMethod] = useState<any | null>(null);
+  const [methodName, setMethodName] = useState("");
+  const [methodHolder, setMethodHolder] = useState("");
+  const [methodNumber, setMethodNumber] = useState("");
+  const [methodInstructions, setMethodInstructions] = useState("");
+  const [savingMethod, setSavingMethod] = useState(false);
+  const [deletingMethodId, setDeletingMethodId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAdmin && activeTab === "verifications") fetchVerifications();
+    if (isAdmin && activeTab === "payments") fetchPaymentMethods();
   }, [isAdmin, activeTab]);
+
+  async function fetchPaymentMethods() {
+    setMethodsLoading(true);
+    const { data, error } = await supabase
+      .from("payment_methods")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) toast.error("Failed to load payment methods: " + error.message);
+    setPaymentMethods(data ?? []);
+    setMethodsLoading(false);
+  }
+
+  function openCreateMethod() {
+    setEditingMethod(null);
+    setMethodName("");
+    setMethodHolder("");
+    setMethodNumber("");
+    setMethodInstructions("");
+    setMethodDialogOpen(true);
+  }
+
+  function openEditMethod(method: any) {
+    setEditingMethod(method);
+    setMethodName(method.method_name ?? "");
+    setMethodHolder(method.account_holder ?? "");
+    setMethodNumber(method.account_number ?? "");
+    setMethodInstructions(method.instructions ?? "");
+    setMethodDialogOpen(true);
+  }
+
+  async function handleSaveMethod(e: React.FormEvent) {
+    e.preventDefault();
+    if (!methodName.trim() || !methodHolder.trim() || !methodNumber.trim()) {
+      toast.error("Method name, account holder, and account number are required.");
+      return;
+    }
+    setSavingMethod(true);
+    const payload = {
+      method_name: methodName.trim(),
+      account_holder: methodHolder.trim(),
+      account_number: methodNumber.trim(),
+      instructions: methodInstructions.trim() || null,
+    };
+    const { error } = editingMethod
+      ? await supabase.from("payment_methods").update(payload).eq("id", editingMethod.id)
+      : await supabase.from("payment_methods").insert(payload);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(editingMethod ? "Payment method updated!" : "Payment method added!");
+      setMethodDialogOpen(false);
+      fetchPaymentMethods();
+    }
+    setSavingMethod(false);
+  }
+
+  async function handleDeleteMethod(id: string) {
+    setDeletingMethodId(id);
+    const { error } = await supabase.from("payment_methods").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Payment method removed.");
+      fetchPaymentMethods();
+    }
+    setDeletingMethodId(null);
+  }
 
   async function fetchVerifications() {
     const { data } = await supabase
       .from("payment_verifications")
       .select(`
-        id, status, screenshot_url, created_at,
+        id, status, screenshot_url, verification_message, created_at,
         bids ( chosen_number, id, items (title) ),
         payment_methods (method_name)
       `)
@@ -225,6 +307,13 @@ export default function AdminDashboard() {
             <CheckCircle2 className="w-4 h-4" style={{ color: activeTab === "verifications" ? "var(--gold)" : "currentColor" }} />
             Verifications
           </button>
+          <button
+            onClick={() => setActiveTab("payments")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "payments" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+          >
+            <Wallet className="w-4 h-4" style={{ color: activeTab === "payments" ? "var(--gold)" : "currentColor" }} />
+            Payment Methods
+          </button>
         </nav>
         <div className="px-5 py-4 border-t border-border/50">
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
@@ -237,18 +326,28 @@ export default function AdminDashboard() {
         {/* Top bar */}
         <header className="h-14 border-b border-border flex items-center justify-between px-6 sticky top-0 bg-background/90 backdrop-blur-xl z-30">
           <h1 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            Auction Management
+            {activeTab === "auctions" ? "Auction Management" : activeTab === "verifications" ? "Payment Verifications" : "Payment Methods"}
           </h1>
-          <Button
-            onClick={() => setCreateOpen(true)}
-            className="bg-primary text-primary-foreground font-semibold hover:opacity-90 gap-2 h-8 text-sm"
-          >
-            <Plus className="w-3.5 h-3.5" /> New Auction
-          </Button>
+          {activeTab === "auctions" && (
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="bg-primary text-primary-foreground font-semibold hover:opacity-90 gap-2 h-8 text-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Auction
+            </Button>
+          )}
+          {activeTab === "payments" && (
+            <Button
+              onClick={openCreateMethod}
+              className="bg-primary text-primary-foreground font-semibold hover:opacity-90 gap-2 h-8 text-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Payment Method
+            </Button>
+          )}
         </header>
 
         <div className="p-6">
-          {activeTab === "auctions" ? (
+          {activeTab === "auctions" && (
             <>
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
@@ -301,7 +400,7 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>
                         <span className="number-badge font-semibold" style={{ color: "var(--gold)" }}>
-                          ${item.bid_amount.toLocaleString()}
+                          {formatETB(item.bid_amount)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -355,7 +454,8 @@ export default function AdminDashboard() {
             </div>
           )}
           </>
-          ) : (
+          )}
+          {activeTab === "verifications" && (
             <div className="space-y-4">
               {verifications.length === 0 ? (
                 <div className="border border-border/50 rounded-xl p-12 text-center">
@@ -367,9 +467,16 @@ export default function AdminDashboard() {
                 <div className="grid gap-4">
                   {verifications.map((v: any) => (
                     <div key={v.id} className="bg-card border border-border p-4 rounded-xl flex flex-col md:flex-row gap-6 items-start">
-                      <a href={v.screenshot_url} target="_blank" rel="noreferrer" className="shrink-0">
-                        <img src={v.screenshot_url} alt="Proof" className="w-32 h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
-                      </a>
+                      {v.screenshot_url ? (
+                        <a href={v.screenshot_url} target="_blank" rel="noreferrer" className="shrink-0">
+                          <img src={v.screenshot_url} alt="Proof" className="w-32 h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                        </a>
+                      ) : (
+                        <div className="w-32 h-32 shrink-0 rounded-lg border border-dashed border-border flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+                          <MessageSquare className="w-6 h-6" />
+                          <span className="text-[10px] uppercase tracking-wide">No screenshot</span>
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-lg text-foreground truncate">{v.bids?.items?.title}</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm">
@@ -377,6 +484,12 @@ export default function AdminDashboard() {
                           <p className="text-muted-foreground">Method: <span className="text-foreground font-medium">{v.payment_methods?.method_name}</span></p>
                           <p className="text-muted-foreground">Date: <span className="text-foreground font-medium">{new Date(v.created_at).toLocaleString()}</span></p>
                         </div>
+                        {v.verification_message && (
+                          <div className="mt-2 p-2.5 rounded-lg bg-input border border-border text-sm">
+                            <p className="text-xs text-muted-foreground mb-0.5">User's verification message</p>
+                            <p className="text-foreground">{v.verification_message}</p>
+                          </div>
+                        )}
                         <div className="flex gap-3 mt-4">
                           <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6" onClick={() => handleVerify(v.id, v.bids.id, true)}>Approve</Button>
                           <Button size="sm" variant="destructive" className="font-semibold px-6" onClick={() => handleVerify(v.id, v.bids.id, false)}>Reject</Button>
@@ -388,8 +501,122 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+          {activeTab === "payments" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground -mt-2 mb-2">
+                These are the accounts users see when they pay their entry fee (e.g. Telebirr, CBE, Awash Bank). Users transfer money here, then upload a screenshot or send a verification message.
+              </p>
+              {methodsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-xl bg-card" />)}
+                </div>
+              ) : paymentMethods.length === 0 ? (
+                <div className="border border-border/50 rounded-xl p-12 text-center">
+                  <Wallet className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="font-semibold text-foreground mb-1" style={{ fontFamily: "var(--font-display)" }}>No payment methods yet.</p>
+                  <p className="text-sm text-muted-foreground mb-4">Add a bank account or mobile money method (e.g. Telebirr, CBE) so users can pay.</p>
+                  <Button onClick={openCreateMethod} className="bg-primary text-primary-foreground font-semibold hover:opacity-90 gap-2">
+                    <Plus className="w-4 h-4" /> Add Payment Method
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {paymentMethods.map((m: any) => (
+                    <div key={m.id} className="bg-card border border-border p-4 rounded-xl flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground">{m.method_name}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-sm text-muted-foreground">
+                          <span>Holder: <span className="text-foreground">{m.account_holder}</span></span>
+                          <span>Account #: <span className="text-gold font-mono">{m.account_number}</span></span>
+                        </div>
+                        {m.instructions && (
+                          <p className="text-xs text-muted-foreground mt-1">{m.instructions}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" variant="outline" className="bg-transparent gap-1.5" onClick={() => openEditMethod(m)}>
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-transparent border-destructive/50 text-destructive hover:bg-destructive/10 gap-1.5"
+                          onClick={() => handleDeleteMethod(m.id)}
+                          disabled={deletingMethodId === m.id}
+                        >
+                          {deletingMethodId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Add / Edit Payment Method Dialog */}
+      <Dialog open={methodDialogOpen} onOpenChange={setMethodDialogOpen}>
+        <DialogContent className="bg-card border-border max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "var(--font-display)", color: "var(--gold)" }}>
+              {editingMethod ? "Edit Payment Method" : "Add Payment Method"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveMethod} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label>Method Name *</Label>
+              <Input
+                placeholder="e.g. Telebirr, CBE, Awash Bank"
+                value={methodName}
+                onChange={(e) => setMethodName(e.target.value)}
+                className="bg-input border-border"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account Holder Name *</Label>
+              <Input
+                placeholder="e.g. Bereket Amare"
+                value={methodHolder}
+                onChange={(e) => setMethodHolder(e.target.value)}
+                className="bg-input border-border"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Account / Phone Number *</Label>
+              <Input
+                placeholder="e.g. 0912345678"
+                value={methodNumber}
+                onChange={(e) => setMethodNumber(e.target.value)}
+                className="bg-input border-border font-mono"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Instructions (optional)</Label>
+              <Textarea
+                placeholder="e.g. Include your name as the transfer reference."
+                value={methodInstructions}
+                onChange={(e) => setMethodInstructions(e.target.value)}
+                className="bg-input border-border resize-none"
+                rows={2}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" className="flex-1 bg-transparent" onClick={() => setMethodDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="flex-1 bg-primary text-primary-foreground font-semibold hover:opacity-90" disabled={savingMethod}>
+                {savingMethod ? <Loader2 className="w-4 h-4 animate-spin" /> : editingMethod ? "Save Changes" : "Add Method"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Auction Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -431,7 +658,7 @@ export default function AdminDashboard() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Entry Fee (USD) *</Label>
+                <Label>Entry Fee (ETB) *</Label>
                 <Input
                   type="number"
                   min={0.01}
