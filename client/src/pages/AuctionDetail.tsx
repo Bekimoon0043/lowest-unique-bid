@@ -70,47 +70,35 @@ export default function AuctionDetail() {
     setLoading(false);
   }
 
-  async function handlePay() {
-    if (!user || !item) return;
-    setPaying(true);
-    const { data, error } = await supabase.from("bids").insert({
-      item_id: item.id,
-      user_id: user.id,
-      chosen_number: 0,
-      paid: false,
-    }).select().single();
-    
-    if (error) {
-      toast.error(error.message);
-    } else if (data) {
-      setNewBidId(data.id);
-      setShowDeposit(true);
-      await fetchData();
-    }
-    setPaying(false);
-  }
-
-  async function handlePickNumber() {
+  async function handleEnterAuction() {
     const num = parseInt(chosenNumber);
     if (!num || num < 1) {
       toast.error("Please enter a valid number (minimum 1)");
       return;
     }
-    if (!myBid || !item) return;
+    if (!user || !item) return;
+    
     setSubmitting(true);
-    const { error } = await supabase
-      .from("bids")
-      .update({ chosen_number: num })
-      .eq("id", myBid.id);
+    const { data, error } = await supabase.from("bids").insert({
+      item_id: item.id,
+      user_id: user.id,
+      chosen_number: num,
+      paid: false,
+    }).select().single();
+    
     if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success(`Number ${num} locked in!`);
+      if (error.code === "23505") {
+        toast.error("You have already entered this auction.");
+      } else {
+        toast.error(error.message);
+      }
+    } else if (data) {
+      setNewBidId(data.id);
+      setShowDeposit(true);
       await fetchData();
     }
     setSubmitting(false);
     setNumberConfirmOpen(false);
-    setChosenNumber("");
   }
 
   if (loading) {
@@ -250,42 +238,28 @@ export default function AuctionDetail() {
                   Sign In to Enter
                 </Button>
               </div>
-            ) : !hasPaid ? (
-              /* Step 1: Pay */
+            ) : !myBid ? (
+              /* Step 1: Pick number and Enter */
               <div>
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/30 mb-5">
                   <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-destructive">Non-Refundable Entry Fee</p>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Once you pay the entry fee of <strong className="text-foreground number-badge">{formatETB(item.bid_amount)}</strong>, it cannot be refunded regardless of the outcome.
+                      Entry fee: <strong className="text-foreground number-badge">{formatETB(item.bid_amount)}</strong>. Pick your number first, then you'll be prompted to pay.
                     </p>
                   </div>
                 </div>
-                <Button
-                  size="lg"
-                  className="w-full bg-primary text-primary-foreground font-semibold hover:opacity-90 text-base"
-                  onClick={handlePay}
-                  disabled={paying}
-                >
-                  {paying ? <Loader2 className="w-4 h-4 animate-spin" /> : `Pay ${formatETB(item.bid_amount)} & Enter Auction`}
-                </Button>
-              </div>
-            ) : !hasPickedNumber ? (
-              /* Step 2: Pick number */
-              <div>
-                <div className="flex items-center gap-2 mb-4 text-green-400">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span className="text-sm font-medium">Entry fee paid — now pick your number!</span>
-                </div>
+                
                 <p className="text-sm text-muted-foreground mb-4">
-                  Choose any number starting from 1. The lowest <strong className="text-foreground">unique</strong> number wins. Think strategically!
+                  Choose any number starting from 1. The lowest <strong className="text-foreground">unique</strong> number wins.
                 </p>
+                
                 <div className="flex gap-3">
                   <Input
                     type="number"
                     min={1}
-                    placeholder="Enter a number (e.g. 7)"
+                    placeholder="Enter your number"
                     value={chosenNumber}
                     onChange={(e) => setChosenNumber(e.target.value)}
                     className="bg-input border-border text-lg number-badge font-semibold"
@@ -299,9 +273,31 @@ export default function AuctionDetail() {
                       setNumberConfirmOpen(true);
                     }}
                   >
-                    Lock In
+                    Enter Auction
                   </Button>
                 </div>
+              </div>
+            ) : !hasPaid ? (
+              /* Step 2: Payment Pending */
+              <div className="text-center py-4">
+                <div className="flex items-center justify-center gap-2 mb-4 text-amber-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm font-medium">Payment Verification Pending</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-6">
+                  You've chosen number <strong className="text-foreground number-badge">#{myBid.chosen_number}</strong>. 
+                  Once your payment of <strong className="text-foreground">{formatETB(item.bid_amount)}</strong> is verified, your bid will be active.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full border-primary/50 hover:bg-primary/10"
+                  onClick={() => {
+                    setNewBidId(myBid.id);
+                    setShowDeposit(true);
+                  }}
+                >
+                  View Payment Instructions
+                </Button>
               </div>
             ) : (
               /* Done */
@@ -360,10 +356,10 @@ export default function AuctionDetail() {
             </Button>
             <Button
               className="flex-1 bg-primary text-primary-foreground font-semibold hover:opacity-90"
-              onClick={handlePickNumber}
+              onClick={handleEnterAuction}
               disabled={submitting}
             >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Lock It In!"}
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm & Pay"}
             </Button>
           </div>
         </DialogContent>

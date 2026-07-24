@@ -60,7 +60,7 @@ create table if not exists public.bids (
   id uuid primary key default gen_random_uuid(),
   item_id uuid not null references public.items(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  chosen_number integer not null default 0,
+  chosen_number integer not null check (chosen_number > 0),
   paid boolean not null default false,
   created_at timestamptz not null default now(),
   unique (item_id, user_id)
