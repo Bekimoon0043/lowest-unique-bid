@@ -15,11 +15,20 @@ export default function DepositModal({ isOpen, onClose, bidId }: { isOpen: boole
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      supabase.from("payment_methods").select("*").then(({ data }) => {
-        if (data) setMethods(data);
-      });
+    async function fetchMethods() {
+      if (isOpen) {
+        console.log("Fetching payment methods...");
+        const { data, error } = await supabase.from("payment_methods").select("*");
+        if (error) {
+          console.error("Error fetching payment methods:", error);
+          toast.error("Could not load payment methods.");
+        } else if (data) {
+          console.log("Payment methods loaded:", data);
+          setMethods(data);
+        }
+      }
     }
+    fetchMethods();
   }, [isOpen]);
 
   useEffect(() => {
@@ -92,34 +101,43 @@ export default function DepositModal({ isOpen, onClose, bidId }: { isOpen: boole
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-surface border-border text-primary-foreground">
-        <DialogHeader>
-          <DialogTitle>Complete Your Deposit</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="bg-card border-border text-foreground max-w-md w-[95vw] rounded-2xl p-0 overflow-hidden">
+        <div className="p-6">
+          <DialogHeader className="mb-6">
+            <DialogTitle className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+              Complete Your Deposit
+            </DialogTitle>
+          </DialogHeader>
 
-        {!selectedMethod ? (
-          <div className="space-y-4">
-            <p className="text-muted-foreground">Choose your payment method:</p>
-            {methods.length === 0 ? (
-              <p className="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
-                No payment methods have been set up yet. Please check back shortly or contact the admin.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {methods.map((method) => (
-                  <Button
-                    key={method.id}
-                    variant="outline"
-                    className="h-24 flex flex-col gap-2 border-gold/30 hover:border-gold hover:bg-gold/10"
-                    onClick={() => setSelectedMethod(method)}
-                  >
-                    <span className="font-bold text-lg">{method.method_name}</span>
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
+          {!selectedMethod ? (
+            <div className="space-y-4">
+              <p className="text-muted-foreground text-sm">Choose your payment method to see account details:</p>
+              {methods.length === 0 ? (
+                <div className="py-12 px-6 text-center border border-dashed border-border rounded-xl bg-muted/5">
+                  <p className="text-sm text-muted-foreground">
+                    No payment methods have been set up yet. 
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Please contact the admin to complete your entry.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {methods.map((method) => (
+                    <Button
+                      key={method.id}
+                      variant="outline"
+                      className="h-20 flex flex-col items-center justify-center gap-1 border-border hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                      onClick={() => setSelectedMethod(method)}
+                    >
+                      <span className="font-bold text-base group-hover:text-primary">{method.method_name}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Select Method</span>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="space-y-6">
             <div className="bg-input p-4 rounded-lg border border-border">
               <p className="text-sm text-muted-foreground mb-1">Account Holder</p>
@@ -188,12 +206,13 @@ export default function DepositModal({ isOpen, onClose, bidId }: { isOpen: boole
 
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setSelectedMethod(null)} className="flex-1">Back</Button>
-              <Button onClick={handleSubmit} disabled={uploading} className="flex-1 bg-gold text-primary font-semibold hover:bg-gold/90">
+              <Button onClick={handleSubmit} disabled={uploading} className="flex-1 bg-primary text-primary-foreground font-semibold hover:opacity-90">
                 {uploading ? "Submitting..." : "Submit for Verification"}
               </Button>
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
